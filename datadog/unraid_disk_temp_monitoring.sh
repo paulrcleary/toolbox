@@ -85,12 +85,12 @@ process_metric() {
 }
 
 # Read the disks.ini file line by line
-while IFS= read -r line || [ -n "$line" ]; do
-    # Trim whitespace and quotes from the line for easier parsing
-    clean_line=$(echo "$line" | xargs)
+while IFS= read -r line; do
+    # --- MODIFIED LINE: Replaced faulty 'xargs' with 'sed' for safe whitespace trimming ---
+    clean_line=$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 
-    # Check for a new disk section header
-    if [[ "$clean_line" == \[\"*\] ]]; then
+    # Check for a new disk section header (e.g. ["disk1"])
+    if [[ "$clean_line" =~ ^\[\".+\"\]$ ]]; then
         # When we find a new disk, process the data for the *previous* one
         process_metric
 
