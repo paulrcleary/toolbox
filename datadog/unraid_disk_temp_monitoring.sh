@@ -79,7 +79,7 @@ process_metric() {
     if [[ -n "$current_name" && -n "$current_temp" ]]; then
         # Check for a valid numeric temperature, skipping if not (e.g., flash drive has temp="*")
         if [[ "$current_temp" =~ ^[0-9]+$ ]]; then
-            log "Processing: Name='${current_name}', ID='${current_id}', Type='${current_type}', Temp='${current_temp}', Device='${current_device}'"
+            log "Processing: Name='${current_name}', ID='${current_id}', Type='${current_type}', Temp='${current_temp}', Device='${current_device}', Rotational='${current_rotational}'"
             
             metric_name="${METRIC_PREFIX}.temperature"
             
@@ -87,7 +87,7 @@ process_metric() {
             # Lowercase the type tag
             type_tag=$(echo "$current_type" | tr '[:upper:]' '[:lower:]')
             # Sanitize the disk_id: convert to lowercase and replace hyphens with underscores.
-            sanitized_id=$(echo "$current_id" | tr '[:upper:]' '[:lower:]' | tr '-' '_')
+            sanitized_id=$(echo "$current_id" | tr '[:upper:]' '[:lower:]')
             
             # Determine drive_kind based on rotational status
             drive_kind=""
@@ -136,21 +136,22 @@ while IFS= read -r line; do
         current_transport=""
         current_rotational=""
     
-    # Check for the data lines we care about within a section
-    elif [[ "$clean_line" == name=* ]]; then
-        current_name=$(echo "$clean_line" | cut -d'=' -f2 | tr -d '"')
-    elif [[ "$clean_line" == id=* ]]; then
-        current_id=$(echo "$clean_line" | cut -d'=' -f2 | tr -d '"')
-    elif [[ "$clean_line" == temp=* ]]; then
-        current_temp=$(echo "$clean_line" | cut -d'=' -f2 | tr -d '"')
-    elif [[ "$clean_line" == type=* ]]; then
-        current_type=$(echo "$clean_line" | cut -d'=' -f2 | tr -d '"')
-    elif [[ "$clean_line" == device=* ]]; then
-        current_device=$(echo "$clean_line" | cut -d'=' -f2 | tr -d '"')
-    elif [[ "$clean_line" == transport=* ]]; then
-        current_transport=$(echo "$clean_line" | cut -d'=' -f2 | tr -d '"')
-    elif [[ "$clean_line" == rotational=* ]]; then
-        current_rotational=$(echo "$clean_line" | cut -d'=' -f2 | tr -d '"')
+    # --- MODIFIED: Using a robust 'case' statement for parsing key-value pairs ---
+    else
+      # Extract the key and value from the line
+      key=$(echo "$clean_line" | cut -d'=' -f1)
+      value=$(echo "$clean_line" | cut -d'=' -f2- | tr -d '"')
+
+      # Assign the value to the correct variable
+      case "$key" in
+          name)         current_name="$value" ;;
+          id)           current_id="$value" ;;
+          temp)         current_temp="$value" ;;
+          type)         current_type="$value" ;;
+          device)       current_device="$value" ;;
+          transport)    current_transport="$value" ;;
+          rotational)   current_rotational="$value" ;;
+      esac
     fi
 done < "$DISKS_INI"
 
