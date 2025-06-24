@@ -31,6 +31,10 @@
 #    a) Go to Settings -> Disk Settings.
 #    b) Set "Tunable (poll_attributes)" to your schedule in seconds (e.g., 300 for 5 minutes).
 #
+# 6. Verify Metrics in Datadog:
+#    After running the script, check the Datadog dashboard for metrics under: unraid.disk.temperature
+#    (optional) In Datadog, under Metrics -> Metrics summary, you can set the unit to "Temperature -> Celsius" for better readability.
+#
 # =================================================================================
 
 
