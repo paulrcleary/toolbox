@@ -71,6 +71,9 @@
             color: #e2e8f0; /* Tailwind gray-300 */
             border-color: #718096; /* Tailwind gray-500 */
         }
+        #singleImagePreview {
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 h-screen flex flex-col">
@@ -98,13 +101,19 @@
             </div>
 
             <!-- Preview/Gallery Container -->
-            <div id="imageDisplay" class="flex-grow flex flex-col bg-gray-50 dark:bg-gray-700 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
+            <div id="imageDisplay" class="flex-grow flex flex-col bg-gray-50 dark:bg-gray-700 rounded-lg p-3 pt-4 border border-gray-200 dark:border-gray-600">
                 <p class="text-gray-500 dark:text-gray-400 text-center py-8" id="initialMessage">Drop images or select files/a folder to get started!</p>
+                <!-- (FIX) Reverted to h-96 for fixed size -->
                 <div id="singleImagePreview" class="hidden flex justify-center items-center h-96 mb-3">
-                    <img id="currentImage" src="" alt="Selected Image Preview" class="max-w-full max-h-full object-contain rounded-md shadow-lg">
+                    <div class="relative group h-full flex items-center">
+                        <img id="currentImage" src="" alt="Selected Image Preview" class="max-w-full max-h-full object-contain rounded-md shadow-lg">
+                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 flex items-center justify-center transition-all duration-200 rounded-md">
+                            <svg class="w-16 h-16 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>  
+                    </div>
                 </div>
-                <div class="flex-grow h-0 overflow-y-auto">
-                    <div id="imageGallery" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                <div id="imageGalleryContainer" class="hidden flex-grow h-0 overflow-y-auto">
+                    <div id="imageGallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                         <!-- Images will be loaded here -->
                     </div>
                 </div>
@@ -148,6 +157,16 @@
         </div>
     </div>
 
+    <!-- Lightbox Modal for Large Image Preview -->
+    <div id="lightboxModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50 p-4">
+        <div class="relative">
+            <img id="lightboxImage" src="" alt="Large image preview" class="block object-contain rounded-lg shadow-xl max-w-[70vw] max-h-[70vh]">
+            <button id="lightboxCloseButton" class="absolute -top-2 -right-2 text-white bg-gray-800 rounded-full p-1 hover:bg-gray-700 focus:outline-none">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+    </div>
+
     <!-- Replaced exif-js with the more modern exifr library -->
     <script src="https://cdn.jsdelivr.net/npm/exifr/dist/lite.umd.js"></script>
 
@@ -179,12 +198,19 @@
         const exifDataTableBody = exifDataTable.querySelector('tbody');
         const fileSelectorContainer = document.getElementById('fileSelectorContainer');
         const closePreviewButton = document.getElementById('closePreviewButton');
+        const imageDisplay = document.getElementById('imageDisplay');
+        const imageGalleryContainer = document.getElementById('imageGalleryContainer');
 
         // Modal DOM References
         const customModal = document.getElementById('customModal');
         const modalMessage = document.getElementById('modalMessage');
         const modalConfirmButton = document.getElementById('modalConfirmButton');
         const modalCancelButton = document.getElementById('modalCancelButton');
+
+        // Lightbox DOM References
+        const lightboxModal = document.getElementById('lightboxModal');
+        const lightboxImage = document.getElementById('lightboxImage');
+        const lightboxCloseButton = document.getElementById('lightboxCloseButton');
 
         // --- MODAL LOGIC ---
         let confirmCallback = null;
@@ -231,24 +257,40 @@
         dropZone.addEventListener('drop', handleDrop);
         closePreviewButton.addEventListener('click', confirmClosePreview);
 
-        // (FIX) Updated logic to handle initial message visibility more cleanly.
+        singleImagePreview.addEventListener('click', () => {
+            if (currentImage.src) {
+                lightboxImage.src = currentImage.src;
+                lightboxModal.classList.remove('hidden');
+            }
+        });
+
+        lightboxCloseButton.addEventListener('click', () => {
+            lightboxModal.classList.add('hidden');
+        });
+
+        lightboxModal.addEventListener('click', (e) => {
+            if (e.target === lightboxModal) {
+                lightboxModal.classList.add('hidden');
+            }
+        });
+
+
         function clearContent(showSelector = true) {
             logger.log(`Clearing display. Show selector: ${showSelector}`);
             
             if (showSelector) {
-                // If we are showing the file selector, show the initial message.
                 initialMessage.classList.remove('hidden');
             } else {
-                // If we are hiding the selector to show a preview, hide the initial message.
                 initialMessage.classList.add('hidden');
             }
 
-            exifInitialMessage.classList.remove('hidden');
             singleImagePreview.classList.add('hidden');
-            imageGallery.classList.add('hidden');
+            imageGalleryContainer.classList.add('hidden');
             imageGallery.innerHTML = '';
             exifDataTable.classList.add('hidden');
             exifDataTableBody.innerHTML = '';
+            imageDisplay.classList.remove('justify-center');
+
             if (showSelector) {
                 fileSelectorContainer.classList.remove('hidden');
                 closePreviewButton.classList.add('hidden');
@@ -266,7 +308,6 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
-        // (FIX) Removed redundant line that was hiding the initial message.
         async function handleFiles(event) {
             logger.log(`Handling files from event: ${event.type}`);
             
@@ -304,9 +345,14 @@
         async function displaySingleImage(file, inGalleryMode = false) {
             logger.log(`Displaying single image: ${file.name}`);
             singleImagePreview.classList.remove('hidden');
+            
             if (!inGalleryMode) {
-                imageGallery.classList.add('hidden');
+                imageGalleryContainer.classList.add('hidden');
+                imageDisplay.classList.add('justify-center');
+            } else {
+                imageDisplay.classList.remove('justify-center');
             }
+
             exifInitialMessage.classList.add('hidden');
             exifDataTable.classList.remove('hidden');
 
@@ -341,12 +387,8 @@
 
         async function displayImageGallery(imageFiles) {
             logger.log(`Displaying image gallery with ${imageFiles.length} images.`);
-            imageGallery.classList.remove('hidden');
-            singleImagePreview.classList.remove('hidden');
-            exifInitialMessage.classList.add('hidden');
-            exifDataTable.classList.remove('hidden');
-            imageGallery.innerHTML = '';
-
+            imageGalleryContainer.classList.remove('hidden');
+            
             await displaySingleImage(imageFiles[0], true);
 
             imageFiles.forEach(file => {
@@ -447,7 +489,7 @@
         const themeIconLight = document.getElementById('theme-icon-light');
         const themeIconDark = document.getElementById('theme-icon-dark');
 
-        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        if (localStorage.getItem('theme') === 'dark' || (!('theme in localStorage') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.classList.add('dark');
             themeIconLight.classList.add('hidden');
             themeIconDark.classList.remove('hidden');
