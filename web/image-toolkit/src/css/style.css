@@ -1,0 +1,87 @@
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+        }
+        .drop-zone {
+            border: 2px dashed #cbd5e0; /* border-gray-300 */
+            background-color: #f7fafc; /* bg-gray-50 */
+            transition: all 0.2s ease-in-out;
+        }
+        .dark .drop-zone {
+            border-color: #4a5568; /* border-gray-600 */
+            background-color: #2d3748; /* bg-gray-800 */
+        }
+        .drop-zone.drag-over {
+            border-color: #4299e1; /* border-blue-500 */
+            background-color: #ebf8ff; /* bg-blue-50 */
+        }
+        .dark .drop-zone.drag-over {
+            border-color: #63b3ed; /* border-blue-400 */
+            background-color: #2c5282; /* bg-blue-800 */
+        }
+        /* Custom scrollbar for gallery and exif table */
+        .overflow-y-auto::-webkit-scrollbar {
+            width: 8px;
+            height: 8px; /* For horizontal scrollbar if needed */
+        }
+        .overflow-y-auto::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .dark .overflow-y-auto::-webkit-scrollbar-track {
+            background: #2d3748;
+        }
+        .overflow-y-auto::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* Style for table section headers */
+        .table-section-header {
+            background-color: #edf2f7; /* Tailwind gray-200 */
+            color: #2d3748; /* Tailwind gray-800 */
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1.5rem;
+            border-top: 1px solid #e2e8f0; /* Tailwind gray-300 */
+            border-bottom: 1px solid #e2e8f0; /* Tailwind gray-300 */
+        }
+        .dark .table-section-header {
+            background-color: #4a5568; /* Tailwind gray-700 */
+            color: #e2e8f0; /* Tailwind gray-300 */
+            border-color: #718096; /* Tailwind gray-500 */
+        }
+        #singleImagePreview {
+            cursor: pointer;
+        }
+
+        /* Tab Styles */
+        .tab-button {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border: none;
+            background-color: transparent;
+            color: #6b7280; /* gray-500 */
+            font-weight: 500;
+            transition: all 0.2s ease-in-out;
+            border-bottom: 2px solid transparent;
+        }
+        .dark .tab-button {
+            color: #9ca3af; /* gray-400 */
+        }
+        .tab-button.active-tab {
+            color: #1f2937; /* gray-800 */
+            border-bottom-color: #3b82f6; /* blue-500 */
+        }
+        .dark .tab-button.active-tab {
+            color: #f3f4f6; /* gray-100 */
+            border-bottom-color: #60a5fa; /* blue-400 */
+        }
+        .tab-panel {
+            /* Add any specific panel styling here */
+        }
