@@ -1,0 +1,40 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.controls {
+  width: 100%;
+  padding: 20px;
+  border-bottom: 1px solid #ccc;
+  box-sizing: border-box; /* Ensure padding doesn't add to width */
+}
+
+.dropzone {
+  border: 2px dashed #ccc;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.dropzone.active {
+  border-color: #007bff;
+}
+
+.sliders {
+  margin-top: 20px;
+}
+
+.sliders label {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.toggle {
+  margin-top: 20px;
+}
+
+.preview {
+  flex: 1;
+}

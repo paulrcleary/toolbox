@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HDR to Gain Map JPG Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #f9fafb;
+        }
+        .drop-zone {
+            border: 2px dashed #4b5563;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        .drop-zone.drag-over {
+            background-color: #1f2937;
+            border-color: #6b7280;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #3b82f6;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #3b82f6;
+        }
+        #preview-canvas {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            background-color: #1f2937;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div id="app" class="w-full max-w-4xl bg-gray-900 rounded-lg shadow-2xl p-6 space-y-6">
+        <h1 class="text-2xl font-bold text-center text-white">HDR to Gain-Mapped JPEG Converter</h1>
+
+        <!-- File Input / Drop Zone -->
+        <div id="drop-zone" class="drop-zone flex flex-col items-center justify-center p-10 text-center cursor-pointer">
+            <svg class="w-12 h-12 text-gray-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-4-4V6a4 4 0 014-4h10a4 4 0 014 4v6a4 4 0 01-4 4H7z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11v6m0 0l-3-3m3 3l3-3"></path></svg>
+            <p class="text-gray-400">Drag & drop your .HDR file here</p>
+            <p class="text-sm text-gray-500">or</p>
+            <button id="file-select-btn" class="mt-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Select File</button>
+            <input type="file" id="file-input" class="hidden" accept=".hdr">
+        </div>
+
+        <!-- Main Content (hidden until file is loaded) -->
+        <div id="main-content" class="hidden grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Preview -->
+            <div class="md:col-span-2 relative flex items-center justify-center bg-gray-800 rounded-lg p-2">
+                 <canvas id="preview-canvas"></canvas>
+                 <div id="loading-spinner" class="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 rounded-lg hidden">
+                    <div class="loader"></div>
+                 </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="space-y-6 bg-gray-800 p-6 rounded-lg">
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="exposure" class="font-medium">Exposure</label>
+                        <span id="exposure-value" class="text-sm text-gray-400">0.0</span>
+                    </div>
+                    <input id="exposure" type="range" min="-4" max="4" value="0" step="0.1" class="slider w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="contrast" class="font-medium">Contrast</label>
+                        <span id="contrast-value" class="text-sm text-gray-400">1.0</span>
+                    </div>
+                    <input id="contrast" type="range" min="0.5" max="2.5" value="1" step="0.05" class="slider w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="saturation" class="font-medium">Saturation</label>
+                         <span id="saturation-value" class="text-sm text-gray-400">1.0</span>
+                    </div>
+                    <input id="saturation" type="range" min="0" max="2" value="1" step="0.05" class="slider w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                </div>
+                
+                <hr class="border-gray-700">
+
+                <!-- SDR/HDR Toggle -->
+                <div class="flex items-center justify-between">
+                    <span class="font-medium">Preview Mode</span>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-400">SDR</span>
+                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" name="toggle" id="hdr-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                            <label for="hdr-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-600 cursor-pointer"></label>
+                        </div>
+                        <span class="text-sm font-semibold">HDR</span>
+                    </div>
+                </div>
+
+                <hr class="border-gray-700">
+
+                <!-- Save Button -->
+                <button id="save-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center disabled:bg-gray-500 disabled:cursor-not-allowed">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Save JPG + Gain Map
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Three.js and GainMap scripts -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+                "@monogrid/gainmap-js": "https://cdn.jsdelivr.net/npm/@monogrid/gainmap-js@3.0.1/dist/index.mjs"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+        import { encode } from '@monogrid/gainmap-js';
+
+        // DOM Elements
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileSelectBtn = document.getElementById('file-select-btn');
+        const mainContent = document.getElementById('main-content');
+        const canvas = document.getElementById('preview-canvas');
+        const exposureSlider = document.getElementById('exposure');
+        const contrastSlider = document.getElementById('contrast');
+        const saturationSlider = document.getElementById('saturation');
+        const hdrToggle = document.getElementById('hdr-toggle');
+        const saveBtn = document.getElementById('save-btn');
+        const loadingSpinner = document.getElementById('loading-spinner');
+
+        // Three.js variables
+        let scene, camera, renderer, material, mesh, hdrTexture;
+        
+        // --- Shader for image adjustments ---
+        const vertexShader = `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `;
+
+        const fragmentShader = `
+            uniform sampler2D tDiffuse;
+            uniform float uExposure;
+            uniform float uContrast;
+            uniform float uSaturation;
+            varying vec2 vUv;
+
+            // Saturation function
+            vec3 saturation(vec3 color, float saturation) {
+                vec3 gray = vec3(dot(color, vec3(0.299, 0.587, 0.114)));
+                return mix(gray, color, saturation);
+            }
+
+            void main() {
+                vec4 color = texture2D(tDiffuse, vUv);
+                
+                // 1. Apply Exposure
+                color.rgb *= pow(2.0, uExposure);
+
+                // 2. Apply Contrast
+                color.rgb = (color.rgb - 0.5) * uContrast + 0.5;
+
+                // 3. Apply Saturation
+                color.rgb = saturation(color.rgb, uSaturation);
+
+                gl_FragColor = color;
+            }
+        `;
+
+        // --- App Logic ---
+        function initThree(texture) {
+            hdrTexture = texture;
+            const aspect = texture.image.width / texture.image.height;
+
+            // Scene setup
+            scene = new THREE.Scene();
+            camera = new THREE.OrthographicCamera(-0.5 * aspect, 0.5 * aspect, 0.5, -0.5, 0.1, 10);
+            camera.position.z = 1;
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(texture.image.width, texture.image.height, false);
+            renderer.toneMapping = THREE.ACESFilmicToneMapping; // Default to SDR
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+            
+            // Material with our custom shader
+            material = new THREE.ShaderMaterial({
+                uniforms: {
+                    tDiffuse: { value: texture },
+                    uExposure: { value: 0.0 },
+                    uContrast: { value: 1.0 },
+                    uSaturation: { value: 1.0 },
+                },
+                vertexShader,
+                fragmentShader,
+            });
+
+            // Geometry
+            const geometry = new THREE.PlaneGeometry(1 * aspect, 1);
+            mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+
+            // Initial render
+            animate();
+        }
+
+        function animate() {
+            renderer.render(scene, camera);
+        }
+        
+        function updateShader() {
+            if (!material) return;
+            material.uniforms.uExposure.value = parseFloat(exposureSlider.value);
+            material.uniforms.uContrast.value = parseFloat(contrastSlider.value);
+            material.uniforms.uSaturation.value = parseFloat(saturationSlider.value);
+            
+            document.getElementById('exposure-value').textContent = parseFloat(exposureSlider.value).toFixed(1);
+            document.getElementById('contrast-value').textContent = parseFloat(contrastSlider.value).toFixed(1);
+            document.getElementById('saturation-value').textContent = parseFloat(saturationSlider.value).toFixed(1);
+
+            requestAnimationFrame(animate);
+        }
+
+        function handleFile(file) {
+            if (!file || !file.name.toLowerCase().endsWith('.hdr')) {
+                alert('Please select a .hdr file.');
+                return;
+            }
+            
+            dropZone.classList.add('hidden');
+            mainContent.classList.remove('hidden');
+            loadingSpinner.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const loader = new RGBELoader();
+                loader.load(e.target.result, (texture) => {
+                    if (renderer) {
+                        // If already initialized, just update texture and resize
+                        hdrTexture.dispose();
+                        hdrTexture = texture;
+                        const aspect = texture.image.width / texture.image.height;
+                        camera.left = -0.5 * aspect;
+                        camera.right = 0.5 * aspect;
+                        camera.updateProjectionMatrix();
+                        mesh.geometry.dispose();
+                        mesh.geometry = new THREE.PlaneGeometry(1 * aspect, 1);
+                        material.uniforms.tDiffuse.value = texture;
+                        renderer.setSize(texture.image.width, texture.image.height, false);
+                    } else {
+                        initThree(texture);
+                    }
+                    updateShader();
+                    loadingSpinner.classList.add('hidden');
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        async function saveImage() {
+            if (!renderer || !hdrTexture) return;
+
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = 'Processing...';
+            loadingSpinner.classList.remove('hidden');
+
+            // Use a separate renderer for offscreen processing to not affect the preview
+            const processingRenderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            processingRenderer.setSize(hdrTexture.image.width, hdrTexture.image.height);
+            
+            const renderTargetSDR = new THREE.WebGLRenderTarget(hdrTexture.image.width, hdrTexture.image.height, { type: THREE.UnsignedByteType, colorSpace: THREE.SRGBColorSpace });
+            const renderTargetHDR = new THREE.WebGLRenderTarget(hdrTexture.image.width, hdrTexture.image.height, { type: THREE.FloatType, colorSpace: THREE.LinearSRGBColorSpace });
+
+            // 1. Render SDR image
+            processingRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+            processingRenderer.setRenderTarget(renderTargetSDR);
+            processingRenderer.render(scene, camera);
+            
+            // 2. Render HDR image
+            processingRenderer.toneMapping = THREE.NoToneMapping;
+            processingRenderer.setRenderTarget(renderTargetHDR);
+            processingRenderer.render(scene, camera);
+
+            // 3. Read pixel data
+            const sdrBuffer = new Uint8Array(hdrTexture.image.width * hdrTexture.image.height * 4);
+            processingRenderer.readRenderTargetPixels(renderTargetSDR, 0, 0, hdrTexture.image.width, hdrTexture.image.height, sdrBuffer);
+            
+            const hdrBuffer = new Float32Array(hdrTexture.image.width * hdrTexture.image.height * 4);
+            processingRenderer.readRenderTargetPixels(renderTargetHDR, 0, 0, hdrTexture.image.width, hdrTexture.image.height, hdrBuffer);
+            
+            processingRenderer.dispose();
+            renderTargetSDR.dispose();
+            renderTargetHDR.dispose();
+
+            try {
+                // 4. Encode with GainMap library
+                const result = await encode({
+                    sdr: {
+                        data: sdrBuffer,
+                        width: hdrTexture.image.width,
+                        height: hdrTexture.image.height
+                    },
+                    hdr: {
+                        data: hdrBuffer,
+                        width: hdrTexture.image.width,
+                        height: hdrTexture.image.height
+                    }
+                });
+
+                // 5. Trigger download
+                const blob = new Blob([result], { type: 'image/jpeg' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'gainmapped-image.jpg';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+            } catch (error) {
+                console.error('Failed to encode gain map:', error);
+                alert('An error occurred during encoding. See console for details.');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = `<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Save JPG + Gain Map`;
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+
+        // --- Event Listeners ---
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            handleFile(e.dataTransfer.files[0]);
+        });
+
+        [exposureSlider, contrastSlider, saturationSlider].forEach(slider => {
+            slider.addEventListener('input', updateShader);
+        });
+
+        hdrToggle.addEventListener('change', () => {
+            if (!renderer) return;
+            renderer.toneMapping = hdrToggle.checked ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
+            requestAnimationFrame(animate);
+        });
+
+        saveBtn.addEventListener('click', saveImage);
+    </script>
+</body>
+</html>
