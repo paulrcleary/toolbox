@@ -1,0 +1,43 @@
+<div id="tags" class="tab-panel p-4 flex flex-col h-full">
+    <div id="tag-display-container" class="flex flex-wrap gap-2 mb-4 overflow-y-auto">
+        <!-- Tags will be dynamically inserted here -->
+    </div>
+    <div id="tag-input-container" class="relative flex items-center mt-auto">
+        <input type="text" id="tag-input" class="w-full bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-l-md py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Add a tag...">
+        <button id="add-tag-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-r-md">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+        </button>
+    </div>
+    <p id="tagsInitialMessage" class="text-gray-500 dark:text-gray-400 text-center py-8">Select an image to start tagging.</p>
+</div>
+
+<style>
+    .tag {
+        display: inline-flex;
+        align-items: center;
+        background-color: #3b82f6; /* blue-500 */
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px; /* rounded-full */
+        font-size: 0.875rem; /* text-sm */
+        font-weight: 500; /* font-medium */
+    }
+    .tag span {
+        margin-right: 0.5rem;
+    }
+    .tag-remove-button {
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+    .tag-remove-button:hover {
+        opacity: 1;
+    }
+</style>

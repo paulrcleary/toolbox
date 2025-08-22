@@ -1,5 +1,6 @@
         let imageFiles = [];
         let currentImageFile = null;
+        let currentTags = [];
 
         // --- Simple Logger ---
         const logger = {
@@ -18,6 +19,7 @@
         const tabContentContainer = document.getElementById('tab-content');
 
         async function loadTabContent(tabName) {
+            logger.log(`Loading tab: ${tabName}`);
             try {
                 const response = await fetch(`src/tabs/${tabName}.html`);
                 if (!response.ok) {
@@ -25,11 +27,15 @@
                 }
                 const content = await response.text();
                 tabContentContainer.innerHTML = content;
-                logger.log(`Successfully loaded tab: ${tabName}`);
+                logger.log(`Successfully loaded tab content for: ${tabName}`);
 
-                if (tabName === 'metadata' && imageFiles.length > 0) {
+                if (tabName === 'metadata' || tabName === 'tags') {
                     if (currentImageFile) {
                         displaySingleImage(currentImageFile, imageFiles.length > 1);
+                    }
+                    if (tabName === 'tags') {
+                        initializeTagFunctionality();
+                        updateTagUI();
                     }
                 }
             } catch (error) {
@@ -217,6 +223,8 @@
         async function displaySingleImage(file, inGalleryMode = false) {
             logger.log(`Displaying single image: ${file.name}`);
             currentImageFile = file;
+            await loadTagsFromFile(file);
+
             singleImagePreview.classList.remove('hidden');
             
             if (!inGalleryMode) {
@@ -251,7 +259,7 @@
                     'File Type': file.type,
                     'Last Modified': new Date(file.lastModified).toLocaleString()
                 };
-                populateExifTable(fileMetadata, exifTags || {});
+                populateMetadataTable(fileMetadata, exifTags || {});
             } catch (error) {
                 logger.error(`Error parsing EXIF data for ${file.name}:`, error);
                 const fileMetadata = {
@@ -260,7 +268,7 @@
                     'File Type': file.type,
                     'Last Modified': new Date(file.lastModified).toLocaleString()
                 };
-                populateExifTable(fileMetadata, { 'Error': 'Could not read EXIF data.' });
+                populateMetadataTable(fileMetadata, { 'Error': 'Could not read EXIF data.' });
             }
         }
 
@@ -288,45 +296,46 @@
             });
         }
 
-        function populateExifTable(fileMetadata, exifTags) {
+        function populateMetadataTable(fileMetadata, allTags) {
             logger.log("Populating metadata table.");
-            const exifDataTable = document.getElementById('exifDataTable');
-            if(exifDataTable) {
-                const exifDataTableBody = exifDataTable.querySelector('tbody');
-                exifDataTableBody.innerHTML = '';
+            const metadataTable = document.getElementById('exifDataTable');
+            if (!metadataTable) return;
 
-                function addRow(tag, value) {
-                    const row = exifDataTableBody.insertRow();
-                    row.className = 'hover:bg-gray-50 dark:hover:bg-gray-700';
-                    const cellTag = row.insertCell();
-                    const cellValue = row.insertCell();
-                    cellTag.className = 'px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-200';
-                    cellValue.className = 'px-6 py-4 text-sm text-gray-700 dark:text-gray-300 break-words max-w-xs';
-                    cellTag.textContent = tag;
-                    cellValue.textContent = value;
-                }
+            const metadataTableBody = metadataTable.querySelector('tbody');
+            metadataTableBody.innerHTML = '';
 
-                const fileMetaHeaderRow = exifDataTableBody.insertRow();
-                fileMetaHeaderRow.innerHTML = `<td colspan="2" class="table-section-header rounded-t-md">File Metadata</td>`;
-                for (const tag in fileMetadata) {
-                    if (fileMetadata.hasOwnProperty(tag)) {
-                        addRow(tag, fileMetadata[tag]);
-                    }
-                }
+            function addRow(tag, value) {
+                const row = metadataTableBody.insertRow();
+                row.className = 'hover:bg-gray-50 dark:hover:bg-gray-700';
+                const cellTag = row.insertCell();
+                const cellValue = row.insertCell();
+                cellTag.className = 'px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-200';
+                cellValue.className = 'px-6 py-4 text-sm text-gray-700 dark:text-gray-300 break-words max-w-xs';
+                cellTag.textContent = tag;
+                cellValue.textContent = value;
+            }
 
-                const exifDataHeaderRow = exifDataTableBody.insertRow();
-                exifDataHeaderRow.innerHTML = `<td colspan="2" class="table-section-header mt-4">EXIF Data</td>`;
-                if (Object.keys(exifTags).length === 0) {
-                    addRow('N/A', 'No EXIF data found for this image.');
-                } else {
-                    for (const tag in exifTags) {
-                        if (exifTags.hasOwnProperty(tag)) {
-                            const value = Array.isArray(exifTags[tag]) ? exifTags[tag].join(', ') : exifTags[tag];
+            function addSection(title, tags) {
+                if (tags && Object.keys(tags).length > 0) {
+                    const headerRow = metadataTableBody.insertRow();
+                    headerRow.innerHTML = `<td colspan="2" class="table-section-header mt-4">${title}</td>`;
+                    for (const tag in tags) {
+                        if (tags.hasOwnProperty(tag)) {
+                            const value = Array.isArray(tags[tag]) ? tags[tag].join(', ') : tags[tag];
                             addRow(tag, value);
                         }
                     }
                 }
             }
+
+            addSection('File Metadata', fileMetadata);
+
+            // Separate different types of metadata
+            const { xmp, iptc, ...exif } = allTags;
+
+            addSection('EXIF Data', exif);
+            addSection('XMP Data', xmp);
+            addSection('IPTC Data', iptc);
         }
 
         function handleDragOver(e) {
@@ -360,6 +369,111 @@
                 },
                 () => {}
             );
+        }
+
+        // --- TAGS LOGIC ---
+        function initializeTagFunctionality() {
+            logger.log('Initializing tag functionality...');
+            const tagInput = document.getElementById('tag-input');
+            const addTagButton = document.getElementById('add-tag-button');
+
+            if (tagInput && addTagButton) {
+                tagInput.addEventListener('keydown', handleTagInput);
+                addTagButton.addEventListener('click', addTagFromInput);
+            }
+        }
+
+        function addTagFromInput() {
+            const tagInput = document.getElementById('tag-input');
+            if (tagInput) {
+                const tagValue = tagInput.value.trim();
+                if (tagValue) {
+                    addTag(tagValue);
+                    tagInput.value = '';
+                }
+            }
+        }
+
+        function handleTagInput(e) {
+            if (e.key === 'Enter' || e.key === 'Tab') {
+                e.preventDefault();
+                addTagFromInput();
+            }
+        }
+
+        function addTag(tag) {
+            logger.log(`addTag called with tag: ${tag}`);
+            if (!currentTags.includes(tag)) {
+                logger.log('Tag is new, adding to list.');
+                currentTags.push(tag);
+                updateTagUI();
+                saveTagsToFile();
+            } else {
+                logger.log('Tag already exists, not adding.');
+            }
+        }
+
+        function removeTag(tagToRemove) {
+            currentTags = currentTags.filter(tag => tag !== tagToRemove);
+            updateTagUI();
+            saveTagsToFile();
+        }
+
+        function updateTagUI() {
+            const tagContainer = document.getElementById('tag-display-container');
+            const tagInputContainer = document.getElementById('tag-input-container');
+            const tagsInitialMessage = document.getElementById('tagsInitialMessage');
+
+            if (!tagContainer || !tagInputContainer || !tagsInitialMessage) return;
+
+            if (!currentImageFile) {
+                tagContainer.innerHTML = '';
+                tagInputContainer.style.display = 'none';
+                tagsInitialMessage.style.display = 'block';
+                return;
+            }
+
+            tagInputContainer.style.display = 'flex';
+            tagsInitialMessage.style.display = 'none';
+            tagContainer.innerHTML = '';
+            currentTags.forEach(tag => {
+                const tagElement = document.createElement('div');
+                tagElement.className = 'tag';
+                tagElement.innerHTML = `
+                    <span>${tag}</span>
+                    <button class="tag-remove-button">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                `;
+                tagElement.querySelector('.tag-remove-button').addEventListener('click', () => removeTag(tag));
+                tagContainer.appendChild(tagElement);
+            });
+        }
+
+        async function saveTagsToFile() {
+            if (!currentImageFile) return;
+
+            const tagsString = currentTags.join(', ');
+            const fileName = currentImageFile.name.split('.').slice(0, -1).join('.') + '.txt';
+
+            try {
+                // This is a placeholder for where you would implement saving the file.
+                // In a real web application, you would typically send this to a server
+                // or use the File System Access API (with user permission).
+                logger.log(`Simulating save to ${fileName}: ${tagsString}`);
+            } catch (error) {
+                logger.error('Error saving tags:', error);
+                showAlert('Could not save tags. See console for details.');
+            }
+        }
+
+        async function loadTagsFromFile(file) {
+            const fileName = file.name.split('.').slice(0, -1).join('.') + '.txt';
+            // This is a placeholder for loading. In a real scenario, you'd fetch this
+            // from a server or use the File System Access API to let the user select the file.
+            logger.log(`Simulating loading tags from ${fileName}`);
+            currentTags = []; // Reset tags for new image
+            updateTagUI();
         }
 
         clearContent(true);

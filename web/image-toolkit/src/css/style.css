@@ -1,5 +1,4 @@
-
-        body {
+body {
             font-family: 'Inter', sans-serif;
             margin: 0;
             padding: 0;
@@ -84,4 +83,32 @@
         }
         .tab-panel {
             /* Add any specific panel styling here */
+        }
+
+        #add-tag-button {
+            flex-shrink: 0;
+        }
+
+        /* Tag Styles */
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            background-color: #e0e7ff; /* indigo-100 */
+            color: #3730a3; /* indigo-800 */
+            border-radius: 9999px;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .dark .tag {
+            background-color: #3730a3; /* indigo-800 */
+            color: #e0e7ff; /* indigo-100 */
+        }
+        .tag-remove-button {
+            margin-left: 0.5rem;
+            color: #6b7280; /* gray-500 */
+            transition: color 0.15s ease-in-out;
+        }
+        .tag-remove-button:hover {
+            color: #ef4444; /* red-500 */
         }
