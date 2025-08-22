@@ -1,6 +1,7 @@
         let imageFiles = [];
         let currentImageFile = null;
         let currentTags = [];
+        let imageTags = {};
 
         // --- Simple Logger ---
         const logger = {
@@ -203,8 +204,33 @@
             clearContent(false);
             logger.log(`Found ${files.length} total files.`);
 
-            imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
-            logger.log(`Filtered to ${imageFiles.length} image files.`);
+            const allFiles = Array.from(files);
+            imageFiles = allFiles.filter(file => file.type.startsWith('image/'));
+            const textFiles = allFiles.filter(file => file.name.endsWith('.txt'));
+
+            logger.log(`Filtered to ${imageFiles.length} image files and ${textFiles.length} text files.`);
+
+            const tagPromises = textFiles.map(textFile => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const imageName = textFile.name.replace('.txt', '');
+                        const tags = e.target.result.split(',').map(tag => tag.trim()).filter(Boolean);
+                        resolve({ imageName, tags });
+                    };
+                    reader.onerror = reject;
+                    reader.readAsText(textFile);
+                });
+            });
+
+            const tagResults = await Promise.all(tagPromises);
+
+            tagResults.forEach(({ imageName, tags }) => {
+                const imageFile = imageFiles.find(f => f.name.startsWith(imageName));
+                if (imageFile && tags.length > 0) {
+                    imageTags[imageFile.name] = tags;
+                }
+            });
 
             if (imageFiles.length === 0) {
                 showAlert('No valid image files found. Please select images or a folder containing them.');
@@ -376,10 +402,20 @@
             logger.log('Initializing tag functionality...');
             const tagInput = document.getElementById('tag-input');
             const addTagButton = document.getElementById('add-tag-button');
+            const downloadTagsButton = document.getElementById('download-tags-button');
+            const downloadAllTagsButton = document.getElementById('download-all-tags-button');
 
             if (tagInput && addTagButton) {
                 tagInput.addEventListener('keydown', handleTagInput);
                 addTagButton.addEventListener('click', addTagFromInput);
+            }
+
+            if (downloadTagsButton) {
+                downloadTagsButton.addEventListener('click', downloadTags);
+            }
+
+            if (downloadAllTagsButton) {
+                downloadAllTagsButton.addEventListener('click', downloadAllTagsAsZip);
             }
         }
 
@@ -406,8 +442,8 @@
             if (!currentTags.includes(tag)) {
                 logger.log('Tag is new, adding to list.');
                 currentTags.push(tag);
+                imageTags[currentImageFile.name] = currentTags;
                 updateTagUI();
-                saveTagsToFile();
             } else {
                 logger.log('Tag already exists, not adding.');
             }
@@ -415,8 +451,8 @@
 
         function removeTag(tagToRemove) {
             currentTags = currentTags.filter(tag => tag !== tagToRemove);
+            imageTags[currentImageFile.name] = currentTags;
             updateTagUI();
-            saveTagsToFile();
         }
 
         function updateTagUI() {
@@ -450,29 +486,62 @@
             });
         }
 
-        async function saveTagsToFile() {
-            if (!currentImageFile) return;
+        function downloadTags() {
+            if (!currentImageFile) {
+                showAlert('Please select an image first.');
+                return;
+            }
 
             const tagsString = currentTags.join(', ');
             const fileName = currentImageFile.name.split('.').slice(0, -1).join('.') + '.txt';
 
-            try {
-                // This is a placeholder for where you would implement saving the file.
-                // In a real web application, you would typically send this to a server
-                // or use the File System Access API (with user permission).
-                logger.log(`Simulating save to ${fileName}: ${tagsString}`);
-            } catch (error) {
-                logger.error('Error saving tags:', error);
-                showAlert('Could not save tags. See console for details.');
+            const blob = new Blob([tagsString], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadAllTagsAsZip() {
+            const zip = new JSZip();
+            let filesAdded = 0;
+
+            for (const imageName in imageTags) {
+                if (imageTags.hasOwnProperty(imageName)) {
+                    const tags = imageTags[imageName];
+                    if (tags && tags.length > 0) {
+                        const tagsString = tags.join(', ');
+                        const fileName = imageName.split('.').slice(0, -1).join('.') + '.txt';
+                        zip.file(fileName, tagsString);
+                        filesAdded++;
+                    }
+                }
             }
+
+            if (filesAdded === 0) {
+                showAlert('No tags have been added to any images yet.');
+                return;
+            }
+
+            zip.generateAsync({ type: 'blob' }).then(function(content) {
+                const url = URL.createObjectURL(content);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'tags.zip';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
         }
 
         async function loadTagsFromFile(file) {
-            const fileName = file.name.split('.').slice(0, -1).join('.') + '.txt';
-            // This is a placeholder for loading. In a real scenario, you'd fetch this
-            // from a server or use the File System Access API to let the user select the file.
-            logger.log(`Simulating loading tags from ${fileName}`);
-            currentTags = []; // Reset tags for new image
+            currentTags = imageTags[file.name] || [];
             updateTagUI();
         }
 
